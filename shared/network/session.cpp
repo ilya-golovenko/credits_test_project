@@ -53,11 +53,11 @@ void tcp::session::do_write()
     if(buffer.empty())
     {
         write_queue_.pop();
+    }
 
-        if(!write_queue_.empty())
-        {
-            dispatcher_.want_write(socket_, [this]{ do_write(); });
-        }
+    if(!write_queue_.empty())
+    {
+        dispatcher_.want_write(socket_, [this]{ do_write(); });
     }
 }
 
