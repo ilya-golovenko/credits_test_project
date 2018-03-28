@@ -37,6 +37,8 @@ private:
     void handle_accept(tcp::session& session);
     void handle_read(tcp::session& session, std::error_code const& error, std::size_t size);
 
+    void cleanup(tcp::session& session);
+
 private:
     using read_buffer = std::array<char, 2048>;
     using buffer_map  = std::map<int, read_buffer>;

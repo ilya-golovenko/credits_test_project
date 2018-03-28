@@ -43,8 +43,7 @@ void transport::server::handle_read(tcp::session& session, std::error_code const
     {
         if(size == 0)
         {
-            session.close();
-            return;
+            return cleanup(session);
         }
 
         tcp::socket& socket(session.get_socket());
@@ -64,9 +63,10 @@ void transport::server::handle_read(tcp::session& session, std::error_code const
             if(result == parse_result::error)
             {
                 log::error("cannot parse transaction: ", std::string(begin, end));
-                session.close();
+                return cleanup(session);
             }
-            else if(result == parse_result::ok)
+
+            if(result == parse_result::ok)
             {
                 if(handler_)
                 {
@@ -80,7 +80,16 @@ void transport::server::handle_read(tcp::session& session, std::error_code const
     else
     {
         log::error("failed to receive transactions: ", error.message());
-        session.close();
+        return cleanup(session);
     }
 }
 
+void transport::server::cleanup(tcp::session& session)
+{
+    tcp::socket& socket(session.get_socket());
+
+    buffers_.erase(socket);
+    contexts_.erase(socket);
+
+    session.close();
+}
