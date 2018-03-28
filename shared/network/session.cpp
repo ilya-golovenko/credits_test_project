@@ -22,70 +22,59 @@ tcp::socket& tcp::session::get_socket()
 
 void tcp::session::write(const_buffer const& buffer, completion_handler&& handler)
 {
-    write_queue_.emplace(buffer, std::move(handler));
-    dispatcher_.want_write(socket_, [this]{ do_write(); });
+    dispatcher_.want_write(socket_, [=, handler = std::move(handler)]{ do_write(buffer, handler); });
 }
 
 void tcp::session::read(mutable_buffer const& buffer, completion_handler&& handler)
 {
-    read_queue_.emplace(buffer, std::move(handler));
-    dispatcher_.want_read(socket_, [this]{ do_read(); });
+    dispatcher_.want_read(socket_, [=, handler = std::move(handler)]{ do_read(buffer, handler); });
 }
 
 void tcp::session::close()
 {
+    dispatcher_.cancel_write(socket_);
+    dispatcher_.cancel_read(socket_);
+
     socket_.close();
 }
 
-void tcp::session::do_write()
+void tcp::session::do_write(const_buffer buffer, completion_handler const& handler)
 {
-    auto [buffer, handler] = write_queue_.front();
+    std::size_t sent = 0;
+
+    std::error_code error;
 
     try
     {
-        handler(std::error_code(), socket_.write(buffer));
+        sent = socket_.write(buffer);
     }
     catch(std::system_error const& e)
     {
-        handler(e.code(), 0);
+        error = e.code();
     }
 
-    if(buffer.empty())
-    {
-        write_queue_.pop();
-    }
-
-    if(!write_queue_.empty())
-    {
-        dispatcher_.want_write(socket_, [this]{ do_write(); });
-    }
+    handler(error, sent);
 }
 
-void tcp::session::do_read()
+void tcp::session::do_read(mutable_buffer buffer, completion_handler const& handler)
 {
-    auto [buffer, handler] = read_queue_.front();
+    std::size_t read = 0;
 
-    read_queue_.pop();
+    std::error_code error;
 
     try
     {
-        std::size_t read = socket_.read(buffer);
+        read = socket_.read(buffer);
 
         if(read == 0)
         {
-            read_queue().swap(read_queue_);
             socket_.close();
         }
-
-        handler(std::error_code(), read);
     }
     catch(std::system_error const& e)
     {
-        handler(e.code(), 0);
+        error = e.code();
     }
 
-    if(!read_queue_.empty())
-    {
-        dispatcher_.want_read(socket_, [this]{ do_read(); });
-    }
+    handler(error, read);
 }

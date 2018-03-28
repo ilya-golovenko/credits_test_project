@@ -10,7 +10,6 @@
 #include <system_error>
 #include <functional>
 #include <utility>
-#include <queue>
 
 
 namespace tcp
@@ -40,18 +39,12 @@ public:
     void close();
 
 private:
-    void do_write();
-    void do_read();
-
-private:
-    using write_queue = std::queue<std::pair<const_buffer, completion_handler>>;
-    using read_queue  = std::queue<std::pair<mutable_buffer, completion_handler>>;
+    void do_write(const_buffer buffer, completion_handler const& handler);
+    void do_read(mutable_buffer buffer, completion_handler const& handler);
 
 private:
     socket      socket_;
     dispatcher& dispatcher_;
-    write_queue write_queue_;
-    read_queue  read_queue_;
 };
 
 }   // namespace tcp

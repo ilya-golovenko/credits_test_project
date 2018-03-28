@@ -72,21 +72,18 @@ void tcp::dispatcher::want_read(socket const& socket, ready_handler&& handler)
     read_handlers_.emplace(socket, std::move(handler));
 }
 
-void tcp::dispatcher::cancel_ops(socket const& socket)
+void tcp::dispatcher::cancel_write(socket const& socket)
 {
-    // write scope
-    {
-        std::lock_guard<std::mutex> lock(write_mutex_);
+    std::lock_guard<std::mutex> lock(write_mutex_);
 
-        write_handlers_.erase(socket);
-    }
+    write_handlers_.erase(socket);
+}
 
-    // read scope
-    {
-        std::lock_guard<std::mutex> lock(read_mutex_);
+void tcp::dispatcher::cancel_read(socket const& socket)
+{
+    std::lock_guard<std::mutex> lock(read_mutex_);
 
-        read_handlers_.erase(socket);
-    }
+    read_handlers_.erase(socket);
 }
 
 void tcp::dispatcher::run()
@@ -115,7 +112,8 @@ void tcp::dispatcher::run()
 
                 if(events[i].flags & EV_ERROR)
                 {
-                    cancel_ops(socket_fd);
+                    cancel_write(socket_fd);
+                    cancel_read(socket_fd);
                 }
                 else
                 {

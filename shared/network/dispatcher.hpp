@@ -35,7 +35,8 @@ public:
     void want_write(socket const& socket, ready_handler&& handler);
     void want_read(socket const& socket, ready_handler&& handler);
 
-    void cancel_ops(socket const& socket);
+    void cancel_write(socket const& socket);
+    void cancel_read(socket const& socket);
 
 private:
     void run();
