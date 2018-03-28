@@ -32,6 +32,8 @@ void transport::client::send(std::vector<transaction> const& transactions)
         buffer << transaction;
     }
 
+    std::lock_guard<std::mutex> lock(write_mutex_);
+
     bool was_empty = write_queue_.empty();
 
     write_queue_.push(buffer.str());
@@ -67,6 +69,8 @@ void transport::client::handle_write(std::error_code const& error, std::size_t s
 {
     if(!error)
     {
+        std::lock_guard<std::mutex> lock(write_mutex_);
+
         write_queue_.pop();
 
         if(!write_queue_.empty())
@@ -86,8 +90,7 @@ void transport::client::handle_read(std::error_code const& error, std::size_t si
     {
         if(size == 0)
         {
-            client_.close();
-            return;
+            return client_.close();
         }
 
         auto begin = buffer_.begin();
@@ -102,9 +105,10 @@ void transport::client::handle_read(std::error_code const& error, std::size_t si
             if(result == parse_result::error)
             {
                 log::error("cannot parse received transaction: ", std::string(begin, end));
-                client_.close();
+                return client_.close();
             }
-            else if(result == parse_result::ok)
+
+            if(result == parse_result::ok)
             {
                 if(handler_)
                 {
@@ -118,6 +122,6 @@ void transport::client::handle_read(std::error_code const& error, std::size_t si
     else
     {
         log::error("failed to read transactions: ", error.message());
-        client_.close();
+        return client_.close();
     }
 }

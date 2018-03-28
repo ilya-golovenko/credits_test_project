@@ -13,6 +13,7 @@
 #include <vector>
 #include <array>
 #include <queue>
+#include <mutex>
 
 
 namespace transport
@@ -48,6 +49,7 @@ private:
     tcp::client&        client_;
     read_buffer         buffer_;
     string_queue        write_queue_;
+    std::mutex          write_mutex_;
     transaction_handler handler_;
     transaction_parser  parser_;
     parse_context       context_;
