@@ -45,34 +45,43 @@ static std::ostream& operator<<(std::ostream& os, log::severity severity)
     return os;
 }
 
-log::record::record(severity severity, std::ostream& stream, std::mutex& mutex) :
-    stream_(stream ? stream : (severity < log::severity::error ? std::cout : std::cerr)),
-    lock_(mutex)
+log::record::record(severity severity)
 {
+    stream_.imbue(std::locale::classic());
+
     stream_ << std::chrono::system_clock::now() << ' '
             << std::this_thread::get_id() << ' '
             << severity << ' ';
 }
 
-log::record::~record()
+std::string log::record::str() const
 {
-    stream_ << std::endl;
+    return stream_.str();
 }
 
 log::file::file(std::string const& filename) :
     file_(filename, std::ios::app)
-{
-    if(file_.is_open())
-    {
-        file_.imbue(std::locale::classic());
-    }
-}
+{}
 
 log::file::~file()
 {
     if(file_)
     {
         file_ << std::endl;
+    }
+}
+
+void log::file::write(record const& record)
+{
+    std::lock_guard<std::mutex> lock(mutex_);
+
+    if(file_)
+    {
+        file_ << record.str() << std::endl;
+    }
+    else
+    {
+        std::cout << record.str() << std::endl;
     }
 }
 

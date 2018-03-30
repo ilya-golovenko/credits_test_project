@@ -5,6 +5,7 @@
 
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include <string>
 #include <mutex>
 
@@ -20,22 +21,22 @@ enum class severity
 class record
 {
 public:
-    record(severity severity, std::ostream& stream, std::mutex& mutex);
-    ~record();
+    explicit record(severity severity);
 
     record(record const&) = delete;
     record& operator=(record const&) = delete;
 
     template <typename T>
-    std::ostream& operator<<(T const& value)
+    record& operator<<(T const& value)
     {
         stream_ << value;
-        return stream_;
+        return *this;
     }
 
+    std::string str() const;
+
 private:
-    std::ostream&               stream_;
-    std::lock_guard<std::mutex> lock_;
+    std::ostringstream stream_;
 };
 
 class file
@@ -53,8 +54,11 @@ public:
     template <typename ... Args>
     void write(severity severity, Args const& ...args)
     {
-        (record(severity, file_, mutex_) << ... << args);
+        write((record(severity) << ... << args));
     }
+
+private:
+    void write(record const& record);
 
 private:
     std::ofstream file_;
