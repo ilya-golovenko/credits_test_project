@@ -5,7 +5,7 @@
 
 #include "socket.hpp"
 
-#include<misc/filedesc.hpp>
+#include<misc/file_descriptor.hpp>
 
 #include <functional>
 #include <atomic>
@@ -20,7 +20,7 @@ namespace tcp
 class dispatcher
 {
 public:
-    using ready_handler = std::function<void ()>;
+    using ready_handler = std::function<void (std::error_code const&)>;
 
 public:
     dispatcher();
@@ -35,24 +35,24 @@ public:
     void want_write(socket const& socket, ready_handler&& handler);
     void want_read(socket const& socket, ready_handler&& handler);
 
-    void cancel_write(socket const& socket);
-    void cancel_read(socket const& socket);
+    void cancel_writes(socket const& socket);
+    void cancel_reads(socket const& socket);
+
+private:
+    using operation   = std::pair<int, short>;
+    using handler_map = std::multimap<operation, ready_handler>;
 
 private:
     void run();
 
-    void call_write_handler(int socket_fd);
-    void call_read_handler(int socket_fd);
+    void register_operation(operation const& op);
+
+    bool call_handler(operation const& op, std::error_code const& error);
 
 private:
-    using handler_map = std::map<int, ready_handler>;
-
-private:
-    filedesc          kqueue_;
-    handler_map       write_handlers_;
-    handler_map       read_handlers_;
-    std::mutex        write_mutex_;
-    std::mutex        read_mutex_;
+    file_descriptor   kqueue_;
+    handler_map       handlers_;
+    std::mutex        mutex_;
     std::atomic_bool  running_;
     std::future<void> worker_;
 };

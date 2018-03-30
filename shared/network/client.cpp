@@ -7,6 +7,8 @@
 #include <arpa/inet.h>
 
 
+using namespace std::placeholders;
+
 tcp::client::client(dispatcher& dispatcher) :
     dispatcher_(dispatcher),
     session_(dispatcher)
@@ -43,28 +45,30 @@ void tcp::client::connect(std::string const& server, std::uint16_t port, connect
     sockaddr_in.sin_port        = htons(port);
     sockaddr_in.sin_addr.s_addr = inet_addr(server.c_str());
 
+    std::error_code error;
+
     if(::connect(socket, &sockaddr, sizeof(sockaddr_in)) < 0)
     {
-        if(errno == EISCONN)
+        if(errno == EINPROGRESS)
         {
-            handler(session_);
+            return dispatcher_.want_write(socket, [this, handler = std::move(handler)](auto&& error) { handler(error); });
         }
-        else if(errno != EINPROGRESS)
+
+        if(errno != EISCONN)
         {
-            throw std::system_error(errno, std::system_category(), "connect failed");
-        }
-        else
-        {
-            dispatcher_.want_write(socket, [this, handler = std::move(handler)]{ handler(session_); });
+            error = std::error_code(errno, std::system_category());
         }
     }
-    else
-    {
-        handler(session_);
-    }
+
+    handler(error);
 }
 
 void tcp::client::close()
 {
     session_.close();
+}
+
+void tcp::client::do_connect(std::error_code const& error, connect_handler const& handler)
+{
+    handler(error);
 }

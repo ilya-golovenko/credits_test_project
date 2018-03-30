@@ -14,7 +14,7 @@ tcp::dispatcher::dispatcher() :
 {
     if((kqueue_ = ::kqueue()) < 0)
     {
-        throw std::system_error(errno, std::system_category(), "kqueue failed");
+        throw std::system_error(errno, std::system_category(), "kqueue");
     }
 }
 
@@ -42,48 +42,48 @@ void tcp::dispatcher::stop()
 
 void tcp::dispatcher::want_write(socket const& socket, ready_handler&& handler)
 {
-    struct kevent event;
+    operation op(socket, EVFILT_WRITE);
 
-    EV_SET(&event, socket, EVFILT_WRITE, EV_ADD | EV_ONESHOT, 0, 0, nullptr);
-
-    if(::kevent(kqueue_, &event, 1, nullptr, 0, nullptr) < 0)
+    // lock scope
     {
-        throw std::system_error(errno, std::system_category(), "kevent failed");
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        handlers_.emplace(op, std::move(handler));
     }
 
-    std::lock_guard<std::mutex> lock(write_mutex_);
-
-    write_handlers_.emplace(socket, std::move(handler));
+    register_operation(op);
 }
 
 void tcp::dispatcher::want_read(socket const& socket, ready_handler&& handler)
 {
-    struct kevent event;
+    operation op(socket, EVFILT_READ);
 
-    EV_SET(&event, socket, EVFILT_READ, EV_ADD | EV_ONESHOT, 0, 0, nullptr);
-
-    if(::kevent(kqueue_, &event, 1, nullptr, 0, nullptr) < 0)
+    // lock scope
     {
-        throw std::system_error(errno, std::system_category(), "kevent failed");
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        handlers_.emplace(op, std::move(handler));
     }
 
-    std::lock_guard<std::mutex> lock(read_mutex_);
-
-    read_handlers_.emplace(socket, std::move(handler));
+    register_operation(op);
 }
 
-void tcp::dispatcher::cancel_write(socket const& socket)
+void tcp::dispatcher::cancel_writes(socket const& socket)
 {
-    std::lock_guard<std::mutex> lock(write_mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
 
-    write_handlers_.erase(socket);
+    operation op(socket, EVFILT_WRITE);
+
+    handlers_.erase(op);
 }
 
-void tcp::dispatcher::cancel_read(socket const& socket)
+void tcp::dispatcher::cancel_reads(socket const& socket)
 {
-    std::lock_guard<std::mutex> lock(read_mutex_);
+    std::lock_guard<std::mutex> lock(mutex_);
 
-    read_handlers_.erase(socket);
+    operation op(socket, EVFILT_READ);
+
+    handlers_.erase(op);
 }
 
 void tcp::dispatcher::run()
@@ -100,7 +100,7 @@ void tcp::dispatcher::run()
             {
                 if(running_)
                 {
-                    throw std::system_error(errno, std::system_category(), "kevent failed");
+                    throw std::system_error(errno, std::system_category(), "kevent");
                 }
 
                 break;
@@ -108,23 +108,20 @@ void tcp::dispatcher::run()
 
             for(int i = 0; i < n; ++i)
             {
-                int socket_fd = events[i].ident;
+                std::error_code error;
 
                 if(events[i].flags & EV_ERROR)
                 {
-                    cancel_write(socket_fd);
-                    cancel_read(socket_fd);
+                    error = std::error_code(events[i].data, std::system_category());
                 }
-                else
+
+                operation op(events[i].ident, events[i].filter);
+
+                bool more = call_handler(op, error);
+
+                if(more)
                 {
-                    if(events[i].filter == EVFILT_WRITE)
-                    {
-                        call_write_handler(socket_fd);
-                    }
-                    else if(events[i].filter == EVFILT_READ)
-                    {
-                        call_read_handler(socket_fd);
-                    }
+                    register_operation(op);
                 }
             }
         }
@@ -143,28 +140,38 @@ void tcp::dispatcher::run()
     }
 }
 
-void tcp::dispatcher::call_write_handler(int socket_fd)
+void tcp::dispatcher::register_operation(operation const& op)
 {
-    std::unique_lock<std::mutex> lock(write_mutex_);
+    struct kevent event;
 
-    auto handler = write_handlers_.at(socket_fd);
+    EV_SET(&event, op.first, op.second, EV_ADD | EV_ONESHOT, 0, 0, nullptr);
 
-    write_handlers_.erase(socket_fd);
-
-    lock.unlock();
-
-    handler();
+    if(::kevent(kqueue_, &event, 1, nullptr, 0, nullptr) < 0)
+    {
+        throw std::system_error(errno, std::system_category(), "kevent");
+    }
 }
 
-void tcp::dispatcher::call_read_handler(int socket_fd)
+bool tcp::dispatcher::call_handler(operation const& op, std::error_code const& error)
 {
-    std::unique_lock<std::mutex> lock(read_mutex_);
+    std::unique_lock<std::mutex> lock(mutex_);
 
-    auto handler = read_handlers_.at(socket_fd);
+    auto [begin, end] = handlers_.equal_range(op);
 
-    read_handlers_.erase(socket_fd);
+    if(begin == handlers_.end())
+    {
+        throw std::logic_error("operation handler is not found");
+    }
+
+    ready_handler handler(std::move(begin->second));
+
+    handlers_.erase(begin++);
+
+    bool more = begin != end;
 
     lock.unlock();
 
-    handler();
+    handler(error);
+
+    return more;
 }

@@ -7,8 +7,7 @@
 #include "session.hpp"
 #include "socket.hpp"
 
-#include <misc/filedesc.hpp>
-
+#include <system_error>
 #include <functional>
 #include <cstdint>
 #include <string>
@@ -33,7 +32,7 @@ public:
     void accept(accept_handler&& handler);
 
 private:
-    void do_accept(accept_handler const& handler);
+    void do_accept(std::error_code const& error, accept_handler const& handler);
 
 private:
     using session_map = std::map<int, session>;

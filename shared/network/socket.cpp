@@ -23,7 +23,7 @@ tcp::socket::socket()
 {
     if((socket_fd_ = ::socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0)
     {
-        throw std::system_error(errno, std::system_category(), "socket failed");
+        throw std::system_error(errno, std::system_category(), "socket");
     }
 
     log::debug("socket[", socket_fd_, "] created");
@@ -63,7 +63,7 @@ std::size_t tcp::socket::write(const_buffer& buffer)
         {
             if(errno != EAGAIN && errno != EWOULDBLOCK)
             {
-                throw std::system_error(errno, std::system_category(), "write failed");
+                throw std::system_error(errno, std::system_category(), "write");
             }
 
             break;
@@ -106,7 +106,7 @@ std::size_t tcp::socket::read(mutable_buffer& buffer)
                     break;      // connection closed
 
                 default:
-                    throw std::system_error(errno, std::system_category(), "read failed");
+                    throw std::system_error(errno, std::system_category(), "read");
             }
         }
 

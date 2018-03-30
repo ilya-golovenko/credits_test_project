@@ -39,8 +39,8 @@ public:
     void close();
 
 private:
-    void do_write(const_buffer buffer, completion_handler const& handler);
-    void do_read(mutable_buffer buffer, completion_handler const& handler);
+    void do_write(std::error_code error, const_buffer buffer, completion_handler const& handler);
+    void do_read(std::error_code error, mutable_buffer buffer, completion_handler const& handler);
 
 private:
     socket      socket_;

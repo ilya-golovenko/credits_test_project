@@ -12,6 +12,8 @@
 #include <fcntl.h>
 
 
+using namespace std::placeholders;
+
 tcp::server::server(dispatcher& dispatcher) :
     dispatcher_(dispatcher)
 {}
@@ -36,12 +38,12 @@ void tcp::server::listen(std::string const& address, std::uint16_t port)
 
     if(::bind(listener_, &sockaddr, sizeof(sockaddr_in)) < 0)
     {
-        throw std::system_error(errno, std::system_category(), "bind failed");
+        throw std::system_error(errno, std::system_category(), "bind");
     }
 
     if(::listen(listener_, SOMAXCONN) < 0)
     {
-        throw std::system_error(errno, std::system_category(), "listen failed");
+        throw std::system_error(errno, std::system_category(), "listen");
     }
 
     detail::set_socket_non_blocking(listener_);
@@ -51,10 +53,10 @@ void tcp::server::listen(std::string const& address, std::uint16_t port)
 
 void tcp::server::accept(accept_handler&& handler)
 {
-    dispatcher_.want_read(listener_, [this, handler = std::move(handler)]{ do_accept(handler); });
+    dispatcher_.want_read(listener_, std::bind(&server::do_accept, this, _1, std::move(handler)));
 }
 
-void tcp::server::do_accept(accept_handler const& handler)
+void tcp::server::do_accept(std::error_code const& error, accept_handler const& handler)
 {
     for(;;)
     {
@@ -74,7 +76,7 @@ void tcp::server::do_accept(accept_handler const& handler)
         {
             if(errno != EAGAIN && errno != EWOULDBLOCK)
             {
-                throw std::system_error(errno, std::system_category(), "accept failed");
+                throw std::system_error(errno, std::system_category(), "accept");
             }
 
             break;
@@ -84,12 +86,9 @@ void tcp::server::do_accept(accept_handler const& handler)
 
         detail::set_socket_non_blocking(socket_fd);
 
-        char host[NI_MAXHOST] = {};
+        std::string const& host(detail::get_host_name(sockaddr, socklen));
 
-        if(::getnameinfo(&sockaddr, socklen, host, sizeof(host), nullptr, 0, NI_NUMERICHOST) >= 0)
-        {
-            log::info("accepted connection from host ", host, " on socket ", socket_fd);
-        }
+        log::info("accepted connection from host ", host, " on socket ", socket_fd);
 
         sessions_.erase(socket_fd);
         sessions_.emplace(socket_fd, session(std::move(socket), dispatcher_));

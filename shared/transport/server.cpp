@@ -68,10 +68,7 @@ void transport::server::handle_read(tcp::session& session, std::error_code const
 
             if(result == parse_result::ok)
             {
-                if(handler_)
-                {
-                    handler_(context.txn);
-                }
+                handler_(context.txn);
             }
         }
 

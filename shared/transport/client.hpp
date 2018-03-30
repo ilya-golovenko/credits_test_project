@@ -37,7 +37,7 @@ private:
     void do_write(tcp::session& session);
     void do_read(tcp::session& session);
 
-    void handle_connect(tcp::session& session);
+    void handle_connect(std::error_code const& error);
     void handle_write(std::error_code const& error, std::size_t size);
     void handle_read(std::error_code const& error, std::size_t size);
 

@@ -60,9 +60,12 @@ void transport::client::do_read(tcp::session& session)
     session.read(buffer, std::bind(&client::handle_read, this, _1, _2));
 }
 
-void transport::client::handle_connect(tcp::session& session)
+void transport::client::handle_connect(std::error_code const& error)
 {
-    do_read(session);
+    if(!error)
+    {
+        do_read(client_.get_session());
+    }
 }
 
 void transport::client::handle_write(std::error_code const& error, std::size_t size)
@@ -110,10 +113,7 @@ void transport::client::handle_read(std::error_code const& error, std::size_t si
 
             if(result == parse_result::ok)
             {
-                if(handler_)
-                {
-                    handler_(context_.txn);
-                }
+                handler_(context_.txn);
             }
         }
 
@@ -121,7 +121,7 @@ void transport::client::handle_read(std::error_code const& error, std::size_t si
     }
     else
     {
-        log::error("failed to read transactions: ", error.message());
+        log::error("failed to receive transactions: ", error.message());
         return client_.close();
     }
 }
