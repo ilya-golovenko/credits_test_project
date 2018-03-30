@@ -33,9 +33,6 @@ public:
     void close();
 
 private:
-    void do_connect(std::error_code const& error, connect_handler const& handler);
-
-private:
     dispatcher& dispatcher_;
     session     session_;
 };

@@ -5,8 +5,6 @@
 #include <sstream>
 
 
-using namespace std::placeholders;
-
 transport::client::client(tcp::client& client, transaction_handler handler):
     client_(client),
     handler_(handler)
@@ -16,7 +14,7 @@ void transport::client::connect(std::string const& address, std::uint16_t port)
 {
     log::info("connecting to server on ", address, ':', port);
 
-    client_.connect(address, port, std::bind(&client::handle_connect, this, _1));
+    client_.connect(address, port, [this](auto&& error) { handle_connect(error); });
 }
 
 void transport::client::send(std::vector<transaction> const& transactions)
@@ -50,14 +48,14 @@ void transport::client::do_write(tcp::session& session)
 
     tcp::const_buffer buffer(data.data(), data.size());
 
-    session.write(buffer, std::bind(&client::handle_write, this, _1, _2));
+    session.write(buffer, [this](auto&& error, std::size_t size){ handle_write(error, size); });
 }
 
 void transport::client::do_read(tcp::session& session)
 {
     tcp::mutable_buffer buffer(buffer_.data(), buffer_.size());
 
-    session.read(buffer, std::bind(&client::handle_read, this, _1, _2));
+    session.read(buffer, [this](auto&& error, std::size_t size){ handle_read(error, size); });
 }
 
 void transport::client::handle_connect(std::error_code const& error)

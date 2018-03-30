@@ -3,8 +3,6 @@
 #include <log/logger.hpp>
 
 
-using namespace std::placeholders;
-
 transport::server::server(tcp::server& server, transaction_handler handler):
     server_(server),
     handler_(handler)
@@ -19,7 +17,7 @@ void transport::server::listen(std::string const& address, std::uint16_t port)
 
 void transport::server::do_accept()
 {
-    server_.accept(std::bind(&server::handle_accept, this, _1));
+    server_.accept([this](auto&& session){ handle_accept(session); });
 }
 
 void transport::server::do_read(tcp::session& session)
@@ -28,7 +26,7 @@ void transport::server::do_read(tcp::session& session)
 
     tcp::mutable_buffer buffer(read_buffer.data(), read_buffer.size());
 
-    session.read(buffer, std::bind(&server::handle_read, this, std::ref(session), _1, _2));
+    session.read(buffer, [this, &session](auto&& error, std::size_t size){ handle_read(session, error, size); });
 }
 
 void transport::server::handle_accept(tcp::session& session)

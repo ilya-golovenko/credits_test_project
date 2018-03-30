@@ -7,6 +7,7 @@
 
 #include<misc/file_descriptor.hpp>
 
+#include <system_error>
 #include <functional>
 #include <atomic>
 #include <future>

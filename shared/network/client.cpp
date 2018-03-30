@@ -7,8 +7,6 @@
 #include <arpa/inet.h>
 
 
-using namespace std::placeholders;
-
 tcp::client::client(dispatcher& dispatcher) :
     dispatcher_(dispatcher),
     session_(dispatcher)
@@ -66,9 +64,4 @@ void tcp::client::connect(std::string const& server, std::uint16_t port, connect
 void tcp::client::close()
 {
     session_.close();
-}
-
-void tcp::client::do_connect(std::error_code const& error, connect_handler const& handler)
-{
-    handler(error);
 }

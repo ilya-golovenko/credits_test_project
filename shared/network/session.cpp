@@ -1,8 +1,6 @@
 #include "session.hpp"
 
 
-using namespace std::placeholders;
-
 tcp::session::session(socket&& socket, dispatcher& dispatcher) :
     socket_(std::move(socket)),
     dispatcher_(dispatcher)
@@ -24,12 +22,12 @@ tcp::socket& tcp::session::get_socket()
 
 void tcp::session::write(const_buffer const& buffer, completion_handler&& handler)
 {
-    dispatcher_.want_write(socket_, std::bind(&tcp::session::do_write, this, _1, buffer, std::move(handler)));
+    dispatcher_.want_write(socket_, [this, buffer, handler = std::move(handler)](auto&& error){ do_write(error, buffer, handler); });
 }
 
 void tcp::session::read(mutable_buffer const& buffer, completion_handler&& handler)
 {
-    dispatcher_.want_read(socket_, std::bind(&tcp::session::do_read, this, _1, buffer, std::move(handler)));
+    dispatcher_.want_read(socket_, [this, buffer, handler = std::move(handler)](auto&& error){ do_read(error, buffer, handler); });
 }
 
 void tcp::session::close()
@@ -71,7 +69,7 @@ void tcp::session::do_read(std::error_code error, mutable_buffer buffer, complet
 
             if(read == 0)
             {
-                socket_.close();
+                close();
             }
         }
         catch(std::system_error const& e)

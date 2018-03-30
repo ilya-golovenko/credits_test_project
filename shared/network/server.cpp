@@ -12,8 +12,6 @@
 #include <fcntl.h>
 
 
-using namespace std::placeholders;
-
 tcp::server::server(dispatcher& dispatcher) :
     dispatcher_(dispatcher)
 {}
@@ -53,7 +51,7 @@ void tcp::server::listen(std::string const& address, std::uint16_t port)
 
 void tcp::server::accept(accept_handler&& handler)
 {
-    dispatcher_.want_read(listener_, std::bind(&server::do_accept, this, _1, std::move(handler)));
+    dispatcher_.want_read(listener_, [this, handler = std::move(handler)](auto&& error){ do_accept(error, handler); });
 }
 
 void tcp::server::do_accept(std::error_code const& error, accept_handler const& handler)

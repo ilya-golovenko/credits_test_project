@@ -6,8 +6,6 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
-#include <system_error>
-
 
 tcp::dispatcher::dispatcher() :
     running_(false)
