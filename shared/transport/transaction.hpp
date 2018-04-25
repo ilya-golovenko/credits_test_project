@@ -4,6 +4,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <iosfwd>
 
 
@@ -14,7 +15,7 @@ struct transaction
     std::uint32_t amount;
     std::uint64_t amount1;
     char          currency[10];
-    int           number;
+    std::size_t   number;
 };
 
 std::ostream& operator<<(std::ostream& os, transaction const& txn);

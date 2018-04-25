@@ -1,41 +1,40 @@
 #include "server.hpp"
 
-#include <log/logger.hpp>
+#include <logging/logger.hpp>
 
 
-transport::server::server(tcp::server& server, transaction_handler handler):
-    server_(server),
-    handler_(handler)
+transport::server::server(net::tcp::server& server, transaction_handler handler):
+    server_{server},
+    handler_{handler}
 {}
 
 void transport::server::listen(std::string const& address, std::uint16_t port)
 {
     server_.listen(address, port);
 
-    do_accept();
+    begin_accept();
 }
 
-void transport::server::do_accept()
+void transport::server::begin_accept()
 {
     server_.accept([this](auto&& session){ handle_accept(session); });
 }
 
-void transport::server::do_read(tcp::session& session)
+void transport::server::handle_accept(net::tcp::session& session)
 {
-    read_buffer& read_buffer(buffers_[session.get_socket()]);
+    auto& [buffer, context] = sessions_[session];
 
-    tcp::mutable_buffer buffer(read_buffer.data(), read_buffer.size());
+    begin_read(session, net::tcp::buffer(buffer));
 
+    begin_accept();
+}
+
+void transport::server::begin_read(net::tcp::session& session, net::tcp::mutable_buffer& buffer)
+{
     session.read(buffer, [this, &session](auto&& error, std::size_t size){ handle_read(session, error, size); });
 }
 
-void transport::server::handle_accept(tcp::session& session)
-{
-    do_read(session);
-    do_accept();
-}
-
-void transport::server::handle_read(tcp::session& session, std::error_code const& error, std::size_t size)
+void transport::server::handle_read(net::tcp::session& session, std::error_code const& error, std::size_t size)
 {
     if(!error)
     {
@@ -44,23 +43,15 @@ void transport::server::handle_read(tcp::session& session, std::error_code const
             return cleanup(session);
         }
 
-        tcp::socket& socket(session.get_socket());
+        auto& [buffer, context] = sessions_.at(session);
 
-        read_buffer&   buffer(buffers_[socket]);
-        parse_context& context(contexts_[socket]);
-
-        auto begin = buffer.begin();
-        auto end   = begin + size;
-
-        while(begin != end)
+        for(auto begin = buffer.begin(), end = begin + size; begin != end;)
         {
-            parse_result result;
-
-            std::tie(result, begin) = parser_(context, begin, end);
+            auto [result, it] = parser_(context, begin, end);
 
             if(result == parse_result::error)
             {
-                log::error("cannot parse transaction: ", std::string(begin, end));
+                logging::error("cannot parse transaction: ", std::string(it, end));
                 return cleanup(session);
             }
 
@@ -68,23 +59,21 @@ void transport::server::handle_read(tcp::session& session, std::error_code const
             {
                 handler_(context.txn);
             }
+
+            begin = it;
         }
 
-        do_read(session);
+        begin_read(session, net::tcp::buffer(buffer));
     }
     else
     {
-        log::error("failed to receive transactions: ", error.message());
+        logging::error("failed to receive transactions: ", error.message());
         return cleanup(session);
     }
 }
 
-void transport::server::cleanup(tcp::session& session)
+void transport::server::cleanup(net::tcp::session& session)
 {
-    tcp::socket& socket(session.get_socket());
-
-    buffers_.erase(socket);
-    contexts_.erase(socket);
-
+    sessions_.erase(session);
     session.close();
 }

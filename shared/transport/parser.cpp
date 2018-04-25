@@ -3,50 +3,54 @@
 #include <limits>
 #include <locale>
 
+#include <iostream>
 
 namespace
 {
 
-template <char separator, size_t N>
-parse_result consume_string_field(char (&field)[N], parse_context& context, char c)
+template <char sep, size_t N>
+parse_result consume_string_field(char (&field)[N], std::size_t& length, char c)
 {
-    if(c == separator)
+    if(c == sep)
     {
-        if(context.data > 0)
+        if(length > 0)
         {
-            field[context.data] = '\0';
+            field[length] = '\0';
             return parse_result::ok;
         }
     }
-    else if(context.data < N - 1)
+    else if(length < N - 1)
     {
-        field[context.data++] = c;
+        field[length++] = c;
         return parse_result::more;
     }
 
     return parse_result::error;
 }
 
-template <char separator, typename T>
-parse_result consume_numeric_field(T& field, parse_context& context, char c)
+template <char sep, typename T>
+parse_result consume_numeric_field(T& field, std::size_t& digits, char c)
 {
-    if(c == separator)
+    if(c == sep)
     {
-        if(context.data > 0)
+        if(digits > 0)
         {
             return parse_result::ok;
         }
     }
     else if(std::isdigit(c, std::locale::classic()))
     {
-        if(context.data++ == 0)
+        if(digits == 0)
         {
+            ++digits;
             field = c - '0';
             return parse_result::more;
         }
-        else if(context.data < std::numeric_limits<T>::digits10)
+        else if(digits <= std::numeric_limits<T>::digits10)
         {
-            field = 10 * field + c - '0';
+            ++digits;
+            field *= 10;
+            field += c - '0';
             return parse_result::more;
         }
     }
@@ -60,64 +64,64 @@ parse_result transaction_parser::consume(parse_context& context, char c)
 {
     parse_result result = parse_result::error;
 
-    switch(context.state)
+    switch(auto& [state, data, txn] = context; state)
     {
         case state_source:
-            result = consume_string_field<'|'>(context.txn.source, context, c);
+            result = consume_string_field<'/'>(txn.source, data, c);
             if(result == parse_result::ok)
             {
                 result = parse_result::more;
-                context.state = state_target;
-                context.data = 0;
+                state = state_target;
+                data = 0;
             }
             break;
 
         case state_target:
-            result = consume_string_field<'|'>(context.txn.target, context, c);
+            result = consume_string_field<'/'>(txn.target, data, c);
             if(result == parse_result::ok)
             {
                 result = parse_result::more;
-                context.state = state_amount;
-                context.data = 0;
+                state = state_amount;
+                data = 0;
             }
             break;
 
         case state_amount:
-            result = consume_numeric_field<':'>(context.txn.amount, context, c);
+            result = consume_numeric_field<':'>(txn.amount, data, c);
             if(result == parse_result::ok)
             {
                 result = parse_result::more;
-                context.state = state_amount1;
-                context.data = 0;
+                state = state_amount1;
+                data = 0;
             }
             break;
 
         case state_amount1:
-            result = consume_numeric_field<'|'>(context.txn.amount1, context, c);
+            result = consume_numeric_field<'/'>(txn.amount1, data, c);
             if(result == parse_result::ok)
             {
                 result = parse_result::more;
-                context.state = state_currency;
-                context.data = 0;
+                state = state_currency;
+                data = 0;
             }
             break;
 
         case state_currency:
-            result = consume_string_field<'|'>(context.txn.currency, context, c);
+            result = consume_string_field<'/'>(txn.currency, data, c);
             if(result == parse_result::ok)
             {
                 result = parse_result::more;
-                context.state = state_number;
-                context.data = 0;
+                state = state_number;
+                data = 0;
             }
             break;
 
         case state_number:
-            result = consume_numeric_field<'|'>(context.txn.number, context, c);
+            result = consume_numeric_field<'/'>(txn.number, data, c);
             if(result == parse_result::ok)
             {
-                context.state = state_source;
-                context.data = 0;
+                state = state_source;
+                data = 0;
             }
             break;
     }

@@ -1,5 +1,5 @@
-#ifndef _log_logger_hpp
-#define _log_logger_hpp
+#ifndef _logging_logger_hpp
+#define _logging_logger_hpp
 
 #pragma once
 
@@ -10,18 +10,25 @@
 #include <mutex>
 
 
-namespace log
+namespace logging
 {
 
 enum class severity
 {
-    debug, info, warn, error, fatal
+    debug,
+    info,
+    warn,
+    error,
+    fatal
 };
 
 class record
 {
 public:
     explicit record(severity severity);
+
+    record(record&&) = default;
+    record& operator=(record&&) = default;
 
     record(record const&) = delete;
     record& operator=(record const&) = delete;
@@ -43,7 +50,6 @@ class file
 {
 public:
     explicit file(std::string const& filename);
-    ~file();
 
     file(file&&) = delete;
     file& operator=(file&&) = delete;
@@ -57,7 +63,6 @@ public:
         write((record(severity) << ... << args));
     }
 
-private:
     void write(record const& record);
 
 private:
@@ -99,6 +104,6 @@ void fatal(Args const& ...args)
     get_log_file().write(severity::fatal, args...);
 }
 
-}   // namespace log
+}   // namespace logging
 
 #endif

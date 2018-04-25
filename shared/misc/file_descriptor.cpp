@@ -6,11 +6,11 @@
 
 
 file_descriptor::file_descriptor(int fd) :
-    fd_(fd)
+    fd_{fd}
 {}
 
 file_descriptor::file_descriptor() :
-    fd_(-1)
+    fd_{-1}
 {}
 
 file_descriptor::~file_descriptor()
@@ -19,7 +19,7 @@ file_descriptor::~file_descriptor()
 }
 
 file_descriptor::file_descriptor(file_descriptor&& other) :
-    fd_(-1)
+    fd_{-1}
 {
     swap(other);
 }
@@ -30,7 +30,7 @@ file_descriptor& file_descriptor::operator=(file_descriptor&& other)
     return *this;
 }
 
-void file_descriptor::swap(file_descriptor& other)
+void file_descriptor::swap(file_descriptor& other) noexcept
 {
     std::swap(fd_, other.fd_);
 }
@@ -47,6 +47,11 @@ void file_descriptor::close()
         ::close(fd_);
         fd_ = -1;
     }
+}
+
+int file_descriptor::get() const
+{
+    return fd_;
 }
 
 file_descriptor::operator int() const

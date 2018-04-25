@@ -6,7 +6,7 @@
 #include "transaction.hpp"
 #include "parser.hpp"
 
-#include <network/server.hpp>
+#include <net/tcp/server.hpp>
 
 #include <system_error>
 #include <functional>
@@ -23,7 +23,7 @@ public:
     using transaction_handler = std::function<void (transaction const&)>;
 
 public:
-    server(tcp::server& server, transaction_handler handler);
+    server(net::tcp::server& server, transaction_handler handler);
 
     server(server const&) = delete;
     server& operator=(server const&) = delete;
@@ -31,25 +31,24 @@ public:
     void listen(std::string const& address, std::uint16_t port);
 
 private:
-    void do_accept();
-    void do_read(tcp::session& session);
-
+    void begin_accept();
     void handle_accept(tcp::session& session);
-    void handle_read(tcp::session& session, std::error_code const& error, std::size_t size);
 
-    void cleanup(tcp::session& session);
+    void begin_read(net::tcp::session& session, net::tcp::mutable_buffer& buffer);
+    void handle_read(net::tcp::session& session, std::error_code const& error, std::size_t size);
 
-private:
-    using read_buffer = std::array<char, 2048>;
-    using buffer_map  = std::map<int, read_buffer>;
-    using context_map = std::map<int, parse_context>;
+    void cleanup(net::tcp::session& session);
 
 private:
-    tcp::server&        server_;
+    using read_buffer         = std::array<char, 4096>;
+    using session_context     = std::pair<read_buffer, parse_context>;
+    using session_context_map = std::map<int, session_context>;
+
+private:
+    net::tcp::server&   server_;
     transaction_handler handler_;
+    session_context_map sessions_;
     transaction_parser  parser_;
-    buffer_map          buffers_;
-    context_map         contexts_;
 };
 
 }   // namespace transaction

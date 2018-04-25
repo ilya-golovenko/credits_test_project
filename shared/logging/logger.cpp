@@ -17,27 +17,27 @@ static std::ostream& operator<<(std::ostream& os, std::chrono::system_clock::tim
     return os;
 }
 
-static std::ostream& operator<<(std::ostream& os, log::severity severity)
+static std::ostream& operator<<(std::ostream& os, logging::severity severity)
 {
     switch(severity)
     {
-        case log::severity::debug:
+        case logging::severity::debug:
             os << "[DEBUG]";
             break;
 
-        case log::severity::info:
+        case logging::severity::info:
             os << "[INFO] ";
             break;
 
-        case log::severity::warn:
+        case logging::severity::warn:
             os << "[WARN] ";
             break;
 
-        case log::severity::error:
+        case logging::severity::error:
             os << "[ERROR]";
             break;
 
-        case log::severity::fatal:
+        case logging::severity::fatal:
             os << "[FATAL]";
             break;
     }
@@ -45,7 +45,7 @@ static std::ostream& operator<<(std::ostream& os, log::severity severity)
     return os;
 }
 
-log::record::record(severity severity)
+logging::record::record(severity severity)
 {
     stream_.imbue(std::locale::classic());
 
@@ -54,49 +54,42 @@ log::record::record(severity severity)
             << severity << ' ';
 }
 
-std::string log::record::str() const
+std::string logging::record::str() const
 {
     return stream_.str();
 }
 
-log::file::file(std::string const& filename) :
+logging::file::file(std::string const& filename) :
     file_(filename, std::ios::app)
-{}
-
-log::file::~file()
 {
-    if(file_)
+    if(file_.tellp() > 0)
     {
-        file_ << std::endl;
+        file_ << '\n';
     }
 }
 
-void log::file::write(record const& record)
+void logging::file::write(record const& record)
 {
     std::lock_guard<std::mutex> lock(mutex_);
 
     if(file_)
     {
-        file_ << record.str() << std::endl;
-    }
-    else
-    {
-        std::cout << record.str() << std::endl;
+        file_ << record.str() << '\n';
     }
 }
 
-static log::file& get_log_file_impl(std::string const* filename)
+static logging::file& get_log_file_impl(std::string const* filename)
 {
-    static log::file file(filename ? *filename : std::string("default.log"));
+    static logging::file file(filename ? *filename : std::string{"default.log"});
     return file;
 }
 
-log::file& log::get_log_file()
+logging::file& logging::get_log_file()
 {
     return get_log_file_impl(nullptr);
 }
 
-void log::set_log_file(std::string const& filename)
+void logging::set_log_file(std::string const& filename)
 {
     get_log_file_impl(&filename);
 }

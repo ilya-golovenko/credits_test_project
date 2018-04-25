@@ -3,8 +3,6 @@
 
 #pragma once
 
-#include <cstddef>
-
 
 class file_descriptor
 {
@@ -20,11 +18,13 @@ public:
     file_descriptor(file_descriptor const&) = delete;
     file_descriptor& operator=(file_descriptor const&) = delete;
 
-    void swap(file_descriptor& other);
+    void swap(file_descriptor& other) noexcept;
 
     bool valid() const;
 
     void close();
+
+    int get() const;
 
     operator int() const;
 

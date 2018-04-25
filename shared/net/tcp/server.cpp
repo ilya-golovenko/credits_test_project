@@ -1,7 +1,7 @@
 #include "server.hpp"
 #include "common.hpp"
 
-#include <log/logger.hpp>
+#include <logging/logger.hpp>
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -12,11 +12,11 @@
 #include <fcntl.h>
 
 
-tcp::server::server(dispatcher& dispatcher) :
+net::tcp::server::server(event::dispatcher& dispatcher) :
     dispatcher_(dispatcher)
 {}
 
-void tcp::server::listen(std::string const& address, std::uint16_t port)
+void net::tcp::server::listen(std::string const& address, std::uint16_t port)
 {
     detail::set_socket_option(listener_, IPPROTO_TCP, TCP_NODELAY, 1);
     detail::set_socket_option(listener_, SOL_SOCKET, SO_KEEPALIVE, 1);
@@ -46,15 +46,15 @@ void tcp::server::listen(std::string const& address, std::uint16_t port)
 
     detail::set_socket_non_blocking(listener_);
 
-    log::info("server is listening on ", address, ':', port);
+    logging::info("server is listening on ", address, ':', port);
 }
 
-void tcp::server::accept(accept_handler&& handler)
+void net::tcp::server::accept(accept_handler handler)
 {
-    dispatcher_.want_read(listener_, [this, handler = std::move(handler)](auto&& error){ do_accept(error, handler); });
+    dispatcher_.want_read(listener_, [=](auto&& error){ do_accept(error, handler); });
 }
 
-void tcp::server::do_accept(std::error_code const& error, accept_handler const& handler)
+void net::tcp::server::do_accept(std::error_code const& error, accept_handler const& handler)
 {
     for(;;)
     {
@@ -72,26 +72,38 @@ void tcp::server::do_accept(std::error_code const& error, accept_handler const& 
 
         if(socket_fd < 0)
         {
-            if(errno != EAGAIN && errno != EWOULDBLOCK)
+            if(errno == EINTR)
             {
-                throw std::system_error(errno, std::system_category(), "accept");
+                continue;
             }
 
-            break;
+            if(errno == EAGAIN || errno == EWOULDBLOCK)
+            {
+                break;
+            }
+
+            throw std::system_error(errno, std::system_category(), "accept");
         }
 
         socket socket(socket_fd);
 
         detail::set_socket_non_blocking(socket_fd);
 
-        std::string const& host(detail::get_host_name(sockaddr, socklen));
+        detail::set_socket_option(socket_fd, IPPROTO_TCP, TCP_NODELAY, 1);
+        detail::set_socket_option(socket_fd, SOL_SOCKET, SO_KEEPALIVE, 1);
+        detail::set_socket_option(socket_fd, SOL_SOCKET, SO_NOSIGPIPE, 1);
 
-        log::info("accepted connection from host ", host, " on socket ", socket_fd);
+        detail::set_socket_option(socket_fd, SOL_SOCKET, SO_RCVBUF, 2'097'152);
+
+        std::string const& host = detail::get_host_name(sockaddr, socklen);
+
+        logging::info("accepted connection from host ", host, " on socket ", socket_fd);
 
         sessions_.erase(socket_fd);
-        sessions_.emplace(socket_fd, session(std::move(socket), dispatcher_));
+
+        session session(std::move(socket), dispatcher_);
+        sessions_.emplace(socket_fd, std::move(session));
 
         handler(std::ref(sessions_.at(socket_fd)));
     }
 }
-

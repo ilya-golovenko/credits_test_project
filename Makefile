@@ -7,9 +7,10 @@ bin_dir				=	bin
 
 include_dirs		=	shared
 
-shared_src_dirs		=	shared/log \
+shared_src_dirs		=	shared/io \
+						shared/logging \
 						shared/misc \
-						shared/network \
+						shared/net/tcp \
 						shared/transport
 
 client_src_dirs		=	client $(shared_src_dirs)

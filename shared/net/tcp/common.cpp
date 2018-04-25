@@ -7,7 +7,7 @@
 #include <system_error>
 
 
-std::string tcp::detail::get_host_name(struct sockaddr const& sockaddr, socklen_t socklen)
+std::string net::tcp::detail::get_host_name(struct sockaddr const& sockaddr, socklen_t socklen)
 {
     char host[NI_MAXHOST] = {};
 
@@ -19,7 +19,7 @@ std::string tcp::detail::get_host_name(struct sockaddr const& sockaddr, socklen_
     return host;
 }
 
-void tcp::detail::set_socket_option(int socket_fd, int level, int option, int value)
+void net::tcp::detail::set_socket_option(int socket_fd, int level, int option, int value)
 {
     if(::setsockopt(socket_fd, level, option, &value, sizeof(value)) < 0)
     {
@@ -27,7 +27,19 @@ void tcp::detail::set_socket_option(int socket_fd, int level, int option, int va
     }
 }
 
-void tcp::detail::set_socket_non_blocking(int socket_fd)
+int net::tcp::detail::get_socket_option(int socket_fd, int level, int option)
+{
+    int value;
+
+    if(::getsockopt(socket_fd, level, option, &value, sizeof(value)) < 0)
+    {
+        throw std::system_error(errno, std::system_category(), "getsockopt");
+    }
+
+    return value;
+}
+
+void net::tcp::detail::set_socket_non_blocking(int socket_fd)
 {
     int flags = ::fcntl(socket_fd, F_GETFL, 0);
 
@@ -39,5 +51,13 @@ void tcp::detail::set_socket_non_blocking(int socket_fd)
     if(::fcntl(socket_fd, F_SETFL, flags | O_NONBLOCK) < 0)
     {
         throw std::system_error(errno, std::system_category(), "fcntl");
+    }
+}
+
+void net::tcp::detail::shutdown_socket(int socket_fd)
+{
+    if(::shutdown(socket_fd, SHUT_RDWR) < 0)
+    {
+        throw std::system_error(errno, std::system_category(), "shutdown");
     }
 }

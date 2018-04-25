@@ -1,20 +1,23 @@
-#ifndef _network_buffer_hpp
-#define _network_buffer_hpp
+#ifndef _net_buffer_hpp
+#define _net_buffer_hpp
 
 #pragma once
 
 #include <cstddef>
+#include <array>
 
 
-namespace tcp
+namespace net
 {
 
 class const_buffer
 {
 public:
+    const_buffer();
+
     const_buffer(void const* data, std::size_t size);
 
-    const_buffer(const_buffer const& other) = default;
+    const_buffer(const_buffer const&) = default;
     const_buffer& operator=(const_buffer const&) = default;
 
     void operator+=(std::size_t size);
@@ -32,9 +35,11 @@ private:
 class mutable_buffer
 {
 public:
+    mutable_buffer();
+
     mutable_buffer(void* data, std::size_t size);
 
-    mutable_buffer(mutable_buffer const& other) = default;
+    mutable_buffer(mutable_buffer const&) = default;
     mutable_buffer& operator=(mutable_buffer const&) = default;
 
     void operator+=(std::size_t size);
@@ -49,6 +54,18 @@ private:
     std::size_t size_;
 };
 
-}   // namespace tcp
+template <size_t N>
+const_buffer buffer(std::array<char, N> const& data)
+{
+    return const_buffer(data.data(), data.size());
+}
+
+template <size_t N>
+mutable_buffer buffer(std::array<char, N>& data)
+{
+    return mutable_buffer(data.data(), data.size());
+}
+
+}   // namespace net
 
 #endif

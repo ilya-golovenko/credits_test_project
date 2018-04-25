@@ -1,10 +1,11 @@
-#ifndef _transaction_parser_hpp
-#define _transaction_parser_hpp
+#ifndef _transport_parser_hpp
+#define _transport_parser_hpp
 
 #pragma once
 
 #include "transaction.hpp"
 
+#include <cstddef>
 #include <utility>
 
 
@@ -40,7 +41,7 @@ public:
             }
         }
 
-        return { result, begin };
+        return {result, begin};
     }
 
 private:

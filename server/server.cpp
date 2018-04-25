@@ -1,7 +1,7 @@
-#include <log/logger.hpp>
-#include <network/dispatcher.hpp>
-#include <network/server.hpp>
+#include <event/dispatcher.hpp>
+#include <net/tcp/server.hpp>
 #include <transport/server.hpp>
+#include <logging/logger.hpp>
 
 #include <iostream>
 #include <string>
@@ -9,7 +9,7 @@
 
 void process_transaction(transaction const& txn)
 {
-    log::info("received transaction: ", txn);
+    //logging::info("received transaction: ", txn);
 }
 
 int main(int argc, char* argv[])
@@ -20,15 +20,13 @@ int main(int argc, char* argv[])
         return EXIT_SUCCESS;
     }
 
-    log::set_log_file("server.log");
+    logging::set_log_file("server.log");
 
     try
     {
-        tcp::dispatcher   dispatcher;
-        tcp::server       server(dispatcher);
+        event::dispatcher dispatcher;
+        net::tcp::server  server(dispatcher);
         transport::server transport(server, process_transaction);
-
-        dispatcher.start();
 
         transport.listen(argv[1], std::stoul(argv[2]));
 
@@ -36,12 +34,12 @@ int main(int argc, char* argv[])
     }
     catch(std::exception const& e)
     {
-        log::error("caught std::exception: ", e.what());
+        logging::error("caught std::exception: ", e.what());
         return EXIT_FAILURE;
     }
     catch(...)
     {
-        log::error("caught unexpected exception");
+        logging::error("caught unexpected exception");
         return EXIT_FAILURE;
     }
 
